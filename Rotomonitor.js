@@ -81,13 +81,13 @@ async function postGroupedDevices() {
     if (availableDevices.length === 0) availableDevices.push("None");
     if (deadDevices.length === 0) deadDevices.push("None");
 
-    await postDeviceGroup(activeDevices, okColor, okImage, 'Active Devices: ' + (activeDevices[0] === "None" ? 0 : activeDevices.length), okDeviceMessage);
-    await postDeviceGroup(availableDevices, warningColor, warningImage, 'Available Devices: ' + (availableDevices[0] === "None" ? 0 : availableDevices.length), warnDeviceMessage);
-    await postDeviceGroup(deadDevices, offlineColor, offlineImage, 'Dead Devices: ' + (deadDevices[0] === "None" ? 0 : deadDevices.length), offlineDeviceMessage);
+    okDeviceMessage = await postDeviceGroup(activeDevices, okColor, okImage, 'Active Devices: ' + (activeDevices[0] === "None" ? 0 : activeDevices.length), 'okDeviceMessage');
+    warnDeviceMessage = await postDeviceGroup(availableDevices, warningColor, warningImage, 'Available Devices: ' + (availableDevices[0] === "None" ? 0 : availableDevices.length), 'warnDeviceMessage');
+    offlineDeviceMessage = await postDeviceGroup(deadDevices, offlineColor, offlineImage, 'Dead Devices: ' + (deadDevices[0] === "None" ? 0 : deadDevices.length), 'offlineDeviceMessage');
     await postLastUpdated();
 }
 
-async function postDeviceGroup(deviceList, color, image, title, messageID) {
+async function postDeviceGroup(deviceList, color, image, title, messageIDKey) {
     let channel = await bot.channels.fetch(config.deviceSummaryChannel || config.channel);
 
     // Group devices by parent, collect worker numbers
@@ -124,13 +124,22 @@ async function postDeviceGroup(deviceList, color, image, title, messageID) {
         .setThumbnail(image)
         .setDescription(deviceString);
 
+    // Use the messageIDKey to store the message ID for each group
+    let messageID = global[messageIDKey];
     if (messageID) {
         try {
             let message = await channel.messages.fetch(messageID);
             await message.edit({ embeds: [embed] });
-        } catch { await channel.send({ embeds: [embed] }); }
+            return message.id;
+        } catch {
+            let sent = await channel.send({ embeds: [embed] });
+            global[messageIDKey] = sent.id;
+            return sent.id;
+        }
     } else {
-        await channel.send({ embeds: [embed] });
+        let sent = await channel.send({ embeds: [embed] });
+        global[messageIDKey] = sent.id;
+        return sent.id;
     }
 }
 
