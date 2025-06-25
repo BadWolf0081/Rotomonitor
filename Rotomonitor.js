@@ -105,12 +105,13 @@ async function postDeviceGroup(deviceList, color, image, title, messageIDKey) {
     // Build output lines
     let lines = [];
     for (let parent in parentMap) {
-        let workers = parentMap[parent].join(',');
+        // Sort worker numbers numerically
+        let workers = parentMap[parent].sort((a, b) => Number(a) - Number(b)).join(',');
         lines.push(`${parent} (${workers})`);
     }
     if (deviceList.length === 1 && deviceList[0] === "None") lines = ["None"];
 
-    lines.sort(); // <-- Sort alphabetically
+    lines.sort(); // <-- Sort parent groups alphabetically
 
     let deviceString = lines.join('\n');
     // Truncate to avoid Discord embed limit (safe margin)
