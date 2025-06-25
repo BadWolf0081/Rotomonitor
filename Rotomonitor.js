@@ -25,8 +25,9 @@ let warnDeviceMessage = "";
 let offlineDeviceMessage = "";
 let lastUpdatedMessage = "";
 
-bot.once('ready', () => {
+bot.once('ready', async () => {
     console.info("Discord bot logged in and ready");
+    await clearBotMessages();
     postStatusLoop();
 });
 
@@ -109,6 +110,8 @@ async function postDeviceGroup(deviceList, color, image, title, messageID) {
     }
     if (deviceList.length === 1 && deviceList[0] === "None") lines = ["None"];
 
+    lines.sort(); // <-- Sort alphabetically
+
     let deviceString = lines.join('\n');
     // Truncate to avoid Discord embed limit (safe margin)
     if (deviceString.length > 1900) {
@@ -143,4 +146,16 @@ async function postLastUpdated() {
     } else {
         await channel.send(lastUpdated);
     }
+}
+
+async function clearBotMessages() {
+    const channel = await bot.channels.fetch(config.deviceSummaryChannel || config.channel);
+    let messages;
+    do {
+        messages = await channel.messages.fetch({ limit: 100 });
+        const botMessages = messages.filter(m => m.author.id === bot.user.id);
+        if (botMessages.size > 0) {
+            await channel.bulkDelete(botMessages, true);
+        }
+    } while (messages.size === 100);
 }
