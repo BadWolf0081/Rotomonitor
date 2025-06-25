@@ -88,7 +88,14 @@ async function postGroupedDevices() {
 
 async function postDeviceGroup(deviceList, color, image, title, messageID) {
     let channel = await bot.channels.fetch(config.deviceSummaryChannel || config.channel);
-    let deviceString = deviceList.join('\n');
+    // Show only the last 3 digits (worker number) for each device, except for "None"
+    let deviceString = deviceList
+        .map(d => d === "None" ? "None" : d.slice(-3))
+        .join('\n');
+    // Truncate to avoid Discord embed limit (safe margin)
+    if (deviceString.length > 1900) {
+        deviceString = deviceString.slice(0, 1897) + '\n...and more';
+    }
     let embed = new Discord.MessageEmbed()
         .setTitle(title)
         .setColor(color)
