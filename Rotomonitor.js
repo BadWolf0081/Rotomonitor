@@ -517,7 +517,9 @@ async function AddDevice(name, device) {
         "reapplied": false,
         "rebooted_time": 0,
         "retry_reboot": false,
-        "reboots": 0
+        "reboots": 0,
+        "isAllocated": device.isAllocated || false,
+        "isAlive": device.worker.isAlive || false
     };
     if(!devices[name].lastSeen) {
         devices[name].lastSeen = "Never"
@@ -552,49 +554,43 @@ async function PostGroupedDevices() {
     return new Promise(async function(resolve) {
         if(config.postDeviceSummary) {
             console.info(GetTimestamp() + "Posting device summary");
-            let now = new Date();
-            now = now.getTime();
-            let okDevices = [];
-            let warnDevices = [];
-            let offlineDevices = [];
-            let okDevicesCount = 0;
-            let warnDevicesCount = 0;
-            let offlineDevicesCount = 0;
+            let activeDevices = [];
+            let availableDevices = [];
+            let deadDevices = [];
+            let activeDevicesCount = 0;
+            let availableDevicesCount = 0;
+            let deadDevicesCount = 0;
             for(let deviceName in devices) {
                 let device = devices[deviceName];
-                let lastSeen = new Date(0);
-                lastSeen.setUTCSeconds(device.lastSeen);
-                lastSeen = lastSeen.getTime();
-                lastSeen = now - lastSeen;
-                if(lastSeen > offlineTime) {
-                    offlineDevices.push(device.name);
-                }
-                else if(lastSeen > warningTime) {
-                    warnDevices.push(device.name);
-                }
-                else {
-                    okDevices.push(device.name);
+                // You may need to store isAllocated and isAlive in your device object when updating devices
+                // If not, you can add them in AddDevice/UpdateDevice functions
+                if (device.isAllocated) {
+                    activeDevices.push(device.name);
+                } else if (device.isAlive) {
+                    availableDevices.push(device.name);
+                } else {
+                    deadDevices.push(device.name);
                 }
             }
-            okDevicesCount = okDevices.length;
-            warnDevicesCount = warnDevices.length;
-            offlineDevicesCount = offlineDevices.length;
-            if(okDevices.length == 0) {
-                okDevices.push("None")
+            activeDevicesCount = activeDevices.length;
+            availableDevicesCount = availableDevices.length;
+            deadDevicesCount = deadDevices.length;
+            if(activeDevices.length == 0) {
+                activeDevices.push("None")
             }
-            if(warnDevices.length == 0) {
-                warnDevices.push("None")
+            if(availableDevices.length == 0) {
+                availableDevices.push("None")
             }
-            if(offlineDevices.length == 0) {
-                offlineDevices.push("None")
+            if(deadDevices.length == 0) {
+                deadDevices.push("None")
             }
-            PostDeviceGroup(okDevices.sort(), okColor, okImage, 'Working Devices: ' + okDevicesCount, okDeviceMessage).then(posted => {
+            PostDeviceGroup(activeDevices.sort(), okColor, okImage, 'Active Devices: ' + activeDevicesCount, okDeviceMessage).then(posted => {
                 okDeviceMessage = posted.id;
-                PostDeviceGroup(warnDevices.sort(), warningColor, warningImage, 'Warned Devices: ' + warnDevicesCount, warnDeviceMessage).then(posted => {
+                PostDeviceGroup(availableDevices.sort(), warningColor, warningImage, 'Available Devices: ' + availableDevicesCount, warnDeviceMessage).then(posted => {
                     warnDeviceMessage = posted.id;
-                    PostDeviceGroup(offlineDevices.sort(), offlineColor, offlineImage, 'Offline Devices: ' + offlineDevicesCount, offlineDeviceMessage).then(posted => {
+                    PostDeviceGroup(deadDevices.sort(), offlineColor, offlineImage, 'Dead Devices: ' + deadDevicesCount, offlineDeviceMessage).then(posted => {
                         offlineDeviceMessage = posted.id;
-                        offlineDeviceList = offlineDevices;
+                        offlineDeviceList = deadDevices;
                         PostLastUpdated();
                         console.info(GetTimestamp() + "Finished posting device summary");
                         setTimeout(PostGroupedDevices, postingDelay);
@@ -1036,7 +1032,7 @@ function GetDeviceString(deviceList) {
     );
 
     const out = lines.join('\n');
-    return out.length > 2000 ? out.slice(0, 1997) + '…' : out;
+    return out.length > 2000 ? out.slice(0, 1997) + 'ï¿½' : out;
 }
 
 
