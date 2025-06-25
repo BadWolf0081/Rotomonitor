@@ -1011,22 +1011,24 @@ function PostDeviceGroup(deviceList, color, image, title, messageID) {
 function GetDeviceString(deviceList) {
     const parentList = {};
 
-    for (const dev of deviceList) {
-        if (dev === "None") {
+    for (const devName of deviceList) {
+        if (devName === "None") {
             parentList["None"] = "None";
             continue;
         }
-
-        // always clean
-        const parent = cleanName(dev.slice(0, -4));
-        const worker  = parseInt(dev.slice(-3), 10);
+        // Use the device object for accurate info
+        const device = devices[devName];
+        if (!device) continue;
+        const parent = device.parent;
+        // Extract worker number from the device name (last 3 digits)
+        const worker = devName.slice(-3);
 
         parentList[parent] = parentList[parent]
             ? `${parentList[parent]},${worker}`
             : `${worker}`;
     }
 
-    // build "Parent(001,002)" then join with newlines
+    // build "Parent - (001,002)" then join with newlines
     const lines = Object.entries(parentList).map(
         ([p, w]) => (p === "None" ? "None" : `${p} - (${w})`)
     );
