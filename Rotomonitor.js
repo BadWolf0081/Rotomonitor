@@ -151,10 +151,13 @@ async function postLastUpdated() {
         try {
             let message = await channel.messages.fetch(lastUpdatedMessage);
             await message.edit(lastUpdated);
-        } catch { await channel.send(lastUpdated); }
-    } else {
-        await channel.send(lastUpdated);
+            return;
+        } catch {
+            // If fetch or edit fails (e.g., message deleted), fall through to send a new one
+        }
     }
+    let sent = await channel.send(lastUpdated);
+    lastUpdatedMessage = sent.id;
 }
 
 async function clearBotMessages() {
