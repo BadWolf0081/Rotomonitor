@@ -141,28 +141,41 @@ function logDeviceCounts() {
 async function postDeviceGroup(deviceList, color, image, title, messageIDKey) {
     let channel = await bot.channels.fetch(config.deviceSummaryChannel || config.channel);
 
-    // Group devices by parent, collect worker numbers
-    let parentMap = {};
-    for (let d of deviceList) {
-        if (d === "None") continue;
-        let device = devices[d];
-        if (!device) continue;
-        let parent = device.parent;
-        let workerNum = d.slice(-3).replace(/^0+/, ''); // Remove leading zeros for cleaner look
-        if (!parentMap[parent]) parentMap[parent] = [];
-        parentMap[parent].push(workerNum);
-    }
-
-    // Build output lines
     let lines = [];
-    for (let parent in parentMap) {
-        // Sort worker numbers numerically
-        let workers = parentMap[parent].sort((a, b) => Number(a) - Number(b)).join(',');
-        lines.push(`${parent} (${workers})`);
-    }
-    if (deviceList.length === 1 && deviceList[0] === "None") lines = ["None"];
+    if (messageIDKey === 'offlineDeviceMessage') {
+        // For Dead Devices, just show device names (parent field)
+        for (let d of deviceList) {
+            if (d === "None") continue;
+            let device = devices[d];
+            if (!device) continue;
+            lines.push(device.parent);
+        }
+        // Remove duplicates and sort
+        lines = [...new Set(lines)].sort();
+    } else {
+        // Group devices by parent, collect worker numbers
+        let parentMap = {};
+        for (let d of deviceList) {
+            if (d === "None") continue;
+            let device = devices[d];
+            if (!device) continue;
+            let parent = device.parent;
+            let workerNum = d.slice(-3).replace(/^0+/, ''); // Remove leading zeros for cleaner look
+            if (!parentMap[parent]) parentMap[parent] = [];
+            parentMap[parent].push(workerNum);
+        }
 
-    lines.sort(); // <-- Sort parent groups alphabetically
+        // Build output lines
+        for (let parent in parentMap) {
+            // Sort worker numbers numerically
+            let workers = parentMap[parent].sort((a, b) => Number(a) - Number(b)).join(',');
+            lines.push(`${parent} (${workers})`);
+        }
+        if (deviceList.length === 1 && deviceList[0] === "None") lines = ["None"];
+        lines.sort(); // <-- Sort parent groups alphabetically
+    }
+
+    if (deviceList.length === 1 && deviceList[0] === "None") lines = ["None"];
 
     let deviceString = lines.join('\n');
     // Truncate to avoid Discord embed limit (safe margin)
