@@ -73,12 +73,12 @@ async function postGroupedDevices() {
     let deadDevices = [];
     for (let deviceName in devices) {
         let device = devices[deviceName];
-        if (device.isAllocated) {
+        if (device.isAlive === false) {
+            deadDevices.push(device.name);
+        } else if (device.isAllocated) {
             activeDevices.push(device.name);
         } else if (device.isAlive === true) {
             availableDevices.push(device.name);
-        } else if (device.isAlive === false) {
-            deadDevices.push(device.name);
         }
     }
     if (activeDevices.length === 0) activeDevices.push("None");
