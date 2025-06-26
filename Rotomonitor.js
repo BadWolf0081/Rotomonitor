@@ -51,11 +51,15 @@ function updateDevices() {
             devices = {};
             data.workers.forEach(worker => {
                 let name = worker.worker.deviceId + "_" + worker.worker.workerId.slice(-3);
+                // Prefer worker.worker.isAlive, fallback to worker.controller.isAlive, fallback to false
+                let isAlive = (typeof worker.worker.isAlive === "boolean")
+                    ? worker.worker.isAlive
+                    : (typeof worker.controller?.isAlive === "boolean" ? worker.controller.isAlive : false);
                 devices[name] = {
                     name,
                     parent: cleanName(worker.worker.origin),
-                    isAllocated: worker.isAllocated || false,
-                    isAlive: worker.worker.isAlive || false
+                    isAllocated: !!worker.isAllocated,
+                    isAlive: isAlive
                 };
             });
             resolve();
