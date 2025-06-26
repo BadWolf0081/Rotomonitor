@@ -80,11 +80,11 @@ async function postGroupedDevices() {
     let deadDevices = [];
     for (let deviceName in devices) {
         let device = devices[deviceName];
-        if (device.isAlive === false) {
+        if (device.isAlive !== true) { // Treat undefined or false as dead
             deadDevices.push(device.name);
         } else if (device.isAllocated) {
             activeDevices.push(device.name);
-        } else if (device.isAlive === true) {
+        } else {
             availableDevices.push(device.name);
         }
     }
@@ -101,16 +101,15 @@ async function postGroupedDevices() {
     await postLastUpdated();
 }
 
-// Add this helper function
 function logDeviceCounts() {
     let active = 0, available = 0, dead = 0;
     for (let deviceName in devices) {
         let device = devices[deviceName];
-        if (device.isAlive === false) {
+        if (device.isAlive !== true) { // Treat undefined or false as dead
             dead++;
         } else if (device.isAllocated) {
             active++;
-        } else if (device.isAlive === true) {
+        } else {
             available++;
         }
     }
