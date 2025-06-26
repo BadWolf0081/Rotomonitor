@@ -28,6 +28,7 @@ let lastUpdatedMessage = "";
 bot.once('ready', async () => {
     console.info("Discord bot logged in and ready");
     await clearBotMessages();
+    console.info("Bot started. Waiting for first device status update...");
     postStatusLoop();
 });
 
@@ -35,6 +36,8 @@ bot.login(config.token);
 
 function postStatusLoop() {
     updateDevices().then(() => {
+        // Log after every API update
+        logDeviceCounts();
         postGroupedDevices();
         setTimeout(postStatusLoop, (config.postingDelay || 1) * 60000);
     });
@@ -89,10 +92,29 @@ async function postGroupedDevices() {
     if (availableDevices.length === 0) availableDevices.push("None");
     if (deadDevices.length === 0) deadDevices.push("None");
 
+    // Log device counts after grouping
+    console.info(`[Device Status] Active: ${activeDevices[0] === "None" ? 0 : activeDevices.length}, Available: ${availableDevices[0] === "None" ? 0 : availableDevices.length}, Dead: ${deadDevices[0] === "None" ? 0 : deadDevices.length}`);
+
     okDeviceMessage = await postDeviceGroup(activeDevices, okColor, okImage, 'Active Devices: ' + (activeDevices[0] === "None" ? 0 : activeDevices.length), 'okDeviceMessage');
     warnDeviceMessage = await postDeviceGroup(availableDevices, warningColor, warningImage, 'Available Devices: ' + (availableDevices[0] === "None" ? 0 : availableDevices.length), 'warnDeviceMessage');
     offlineDeviceMessage = await postDeviceGroup(deadDevices, offlineColor, offlineImage, 'Dead Devices: ' + (deadDevices[0] === "None" ? 0 : deadDevices.length), 'offlineDeviceMessage');
     await postLastUpdated();
+}
+
+// Add this helper function
+function logDeviceCounts() {
+    let active = 0, available = 0, dead = 0;
+    for (let deviceName in devices) {
+        let device = devices[deviceName];
+        if (device.isAlive === false) {
+            dead++;
+        } else if (device.isAllocated) {
+            active++;
+        } else if (device.isAlive === true) {
+            available++;
+        }
+    }
+    console.info(`[Device Status] Active: ${active}, Available: ${available}, Dead: ${dead}`);
 }
 
 async function postDeviceGroup(deviceList, color, image, title, messageIDKey) {
