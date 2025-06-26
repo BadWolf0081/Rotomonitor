@@ -52,9 +52,9 @@ function updateDevices() {
             catch { return resolve(); }
             if (!data.workers) return resolve();
             devices = {};
+            // First pass: normal scan
             data.workers.forEach(worker => {
                 let name = worker.worker.deviceId + "_" + worker.worker.workerId.slice(-3);
-                // Prefer worker.worker.isAlive, fallback to worker.controller.isAlive, fallback to false
                 let isAlive = (typeof worker.worker.isAlive === "boolean")
                     ? worker.worker.isAlive
                     : (typeof worker.controller?.isAlive === "boolean" ? worker.controller.isAlive : false);
@@ -64,6 +64,20 @@ function updateDevices() {
                     isAllocated: !!worker.isAllocated,
                     isAlive: isAlive
                 };
+            });
+            // Second pass: catch any device with isAlive === false or init === false not already in devices
+            data.workers.forEach(worker => {
+                // Defensive: check for missing workerId or deviceId
+                if (!worker.worker || !worker.worker.deviceId || !worker.worker.workerId) return;
+                let name = worker.worker.deviceId + "_" + worker.worker.workerId.slice(-3);
+                if (!devices[name] && (worker.worker.isAlive === false || worker.worker.init === false)) {
+                    devices[name] = {
+                        name,
+                        parent: cleanName(worker.worker.origin),
+                        isAllocated: !!worker.isAllocated,
+                        isAlive: false
+                    };
+                }
             });
             resolve();
         });
