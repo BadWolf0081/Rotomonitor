@@ -50,35 +50,43 @@ function updateDevices() {
             let data;
             try { data = JSON.parse(body); }
             catch { return resolve(); }
-            if (!data.workers) return resolve();
             devices = {};
-            // First pass: normal scan
-            data.workers.forEach(worker => {
-                let name = worker.worker.deviceId + "_" + worker.worker.workerId.slice(-3);
-                let isAlive = (typeof worker.worker.isAlive === "boolean")
-                    ? worker.worker.isAlive
-                    : (typeof worker.controller?.isAlive === "boolean" ? worker.controller.isAlive : false);
-                devices[name] = {
-                    name,
-                    parent: cleanName(worker.worker.origin),
-                    isAllocated: !!worker.isAllocated,
-                    isAlive: isAlive
-                };
-            });
-            // Second pass: catch any device with isAlive === false or init === false not already in devices
-            data.workers.forEach(worker => {
-                // Defensive: check for missing workerId or deviceId
-                if (!worker.worker || !worker.worker.deviceId || !worker.worker.workerId) return;
-                let name = worker.worker.deviceId + "_" + worker.worker.workerId.slice(-3);
-                if (!devices[name] && (worker.worker.isAlive === false || worker.worker.init === false)) {
+
+            // Scan workers (as before)
+            if (data.workers) {
+                data.workers.forEach(worker => {
+                    if (!worker.worker || !worker.worker.deviceId || !worker.worker.workerId) return;
+                    let name = worker.worker.deviceId + "_" + worker.worker.workerId.slice(-3);
+                    let isAlive = (typeof worker.worker.isAlive === "boolean")
+                        ? worker.worker.isAlive
+                        : (typeof worker.controller?.isAlive === "boolean" ? worker.controller.isAlive : false);
                     devices[name] = {
                         name,
                         parent: cleanName(worker.worker.origin),
                         isAllocated: !!worker.isAllocated,
-                        isAlive: false
+                        isAlive: isAlive
                     };
-                }
-            });
+                });
+            }
+
+            // Scan devices for any device not already in devices, and mark as dead if isAlive === false
+            if (data.devices) {
+                data.devices.forEach(device => {
+                    // Compose a name similar to workers, but fallback if no workerId
+                    let name = device.deviceId;
+                    // If any worker for this device exists, skip (already handled)
+                    let alreadyExists = Object.keys(devices).some(key => key.startsWith(device.deviceId));
+                    if (!alreadyExists && device.isAlive === false) {
+                        devices[name] = {
+                            name,
+                            parent: cleanName(device.origin),
+                            isAllocated: false,
+                            isAlive: false
+                        };
+                    }
+                });
+            }
+
             resolve();
         });
     });
