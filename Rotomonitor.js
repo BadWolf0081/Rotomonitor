@@ -174,18 +174,19 @@ async function postDeviceGroup(deviceList, color, image, title, messageIDKey) {
                 if (parts.length > 1) {
                     let workerPart = parts[1];
                     // Look for pattern like "2-10" and extract just the "10" part
-                    let dashIndex = workerPart.lastIndexOf('-');
-                    if (dashIndex > 0) {
+                    let dashIndex = workerPart.indexOf('-');
+                    if (dashIndex >= 0) {
+                        // Take everything after the first dash
                         workerNum = workerPart.substring(dashIndex + 1);
                     } else {
-                        workerNum = workerPart.replace(/^0+/, '');
+                        workerNum = workerPart.replace(/^0+/, '') || workerPart;
                     }
                 } else {
-                    workerNum = d.slice(-3).replace(/^0+/, '');
+                    workerNum = d.slice(-3).replace(/^0+/, '') || d.slice(-3);
                 }
             } else {
                 // For regular devices, use the last 3 characters
-                workerNum = d.slice(-3).replace(/^0+/, '');
+                workerNum = d.slice(-3).replace(/^0+/, '') || d.slice(-3);
             }
             
             if (!parentMap[parent]) parentMap[parent] = [];
