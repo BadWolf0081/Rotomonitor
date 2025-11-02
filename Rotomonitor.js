@@ -148,7 +148,10 @@ async function postDeviceGroup(deviceList, color, image, title, messageIDKey) {
             if (d === "None") continue;
             let device = devices[d];
             if (!device) continue;
-            lines.push(device.parent);
+            // Remove PokemodAegis- prefix if present
+            let deviceName = device.parent.startsWith('PokemodAegis-') ? 
+                device.parent.substring(13) : device.parent;
+            lines.push(deviceName);
         }
         // Remove duplicates and sort
         lines = [...new Set(lines)].sort();
@@ -159,8 +162,32 @@ async function postDeviceGroup(deviceList, color, image, title, messageIDKey) {
             if (d === "None") continue;
             let device = devices[d];
             if (!device) continue;
-            let parent = device.parent;
-            let workerNum = d.slice(-3).replace(/^0+/, ''); // Remove leading zeros for cleaner look
+            // Remove PokemodAegis- prefix if present
+            let parent = device.parent.startsWith('PokemodAegis-') ? 
+                device.parent.substring(13) : device.parent;
+            
+            // Extract worker number - handle PokemodAegis format differently
+            let workerNum;
+            if (device.parent.startsWith('PokemodAegis-')) {
+                // For PokemodAegis devices, extract the number after the last dash in the worker name
+                let parts = d.split('_');
+                if (parts.length > 1) {
+                    let workerPart = parts[1];
+                    // Look for pattern like "2-10" and extract just the "10" part
+                    let dashIndex = workerPart.lastIndexOf('-');
+                    if (dashIndex > 0) {
+                        workerNum = workerPart.substring(dashIndex + 1);
+                    } else {
+                        workerNum = workerPart.replace(/^0+/, '');
+                    }
+                } else {
+                    workerNum = d.slice(-3).replace(/^0+/, '');
+                }
+            } else {
+                // For regular devices, use the last 3 characters
+                workerNum = d.slice(-3).replace(/^0+/, '');
+            }
+            
             if (!parentMap[parent]) parentMap[parent] = [];
             parentMap[parent].push(workerNum);
         }
