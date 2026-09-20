@@ -8,7 +8,8 @@ const WEBSITE_AUTH = {
         'user': config.basicUsername || "",
         'password': config.basicPassword || ""
     },
-    'jar': true
+    'jar': true,
+    'headers': config.rotomSecret ? { 'X-Rotom-Secret': config.rotomSecret } : {}
 };
 
 const okColor = 0x008000;
@@ -45,51 +46,87 @@ function postStatusLoop() {
 
 function updateDevices() {
     return new Promise((resolve) => {
-        request.get(config.rotomURL + DEVICE_QUERY, WEBSITE_AUTH, (err, res, body) => {
-            if (err) return resolve();
+        request.get(config.rotomURL.replace(/\/$/, '') + '/' + DEVICE_QUERY, WEBSITE_AUTH, (err, res, body) => {
+            if (err) {
+                console.error(`Unable to read Rotom status: ${err.message}`);
+                return resolve();
+            }
+            if (res && res.statusCode >= 400) {
+                console.error(`Rotom status request failed with HTTP ${res.statusCode}`);
+                return resolve();
+            }
             let data;
             try { data = JSON.parse(body); }
             catch { return resolve(); }
-            devices = {};
-
-            // Scan workers (as before)
-            if (data.workers) {
-                data.workers.forEach(worker => {
-                    if (!worker.worker || !worker.worker.deviceId || !worker.worker.workerId) return;
-                    let name = worker.worker.deviceId + "_" + worker.worker.workerId.slice(-3);
-                    let isAlive = (typeof worker.worker.isAlive === "boolean")
-                        ? worker.worker.isAlive
-                        : (typeof worker.controller?.isAlive === "boolean" ? worker.controller.isAlive : false);
-                    devices[name] = {
-                        name,
-                        parent: cleanName(worker.worker.origin),
-                        isAllocated: !!worker.isAllocated,
-                        isAlive: isAlive
-                    };
-                });
-            }
-
-            // Scan devices for any device not already in devices, and mark as dead if isAlive === false
-            if (data.devices) {
-                data.devices.forEach(device => {
-                    // Compose a name similar to workers, but fallback if no workerId
-                    let name = device.deviceId;
-                    // If any worker for this device exists, skip (already handled)
-                    let alreadyExists = Object.keys(devices).some(key => key.startsWith(device.deviceId));
-                    if (!alreadyExists && device.isAlive === false) {
-                        devices[name] = {
-                            name,
-                            parent: cleanName(device.origin),
-                            isAllocated: false,
-                            isAlive: false
-                        };
-                    }
-                });
-            }
-
+            devices = normalizeStatusDevices(data);
             resolve();
         });
     });
+}
+
+function normalizeStatusDevices(data) {
+    const normalized = {};
+
+    // Rotom OG exposes workers as a top-level array with camelCase fields.
+    if (Array.isArray(data.workers)) {
+        data.workers.forEach(entry => {
+            const worker = entry.worker;
+            if (!worker || !worker.deviceId || !worker.workerId) return;
+            addNormalizedWorker(normalized, {
+                deviceId: worker.deviceId,
+                workerId: worker.workerId,
+                origin: worker.origin,
+                isAlive: typeof worker.isAlive === 'boolean'
+                    ? worker.isAlive
+                    : typeof entry.controller?.isAlive === 'boolean' ? entry.controller.isAlive : false,
+                isAllocated: entry.isAllocated
+            });
+        });
+    }
+
+    // Rotom NG nests workers under each device and uses snake_case fields.
+    if (Array.isArray(data.devices)) {
+        data.devices.forEach(device => {
+            const deviceId = device.id || device.device_id || device.deviceId;
+            const workers = Array.isArray(device.workers) ? device.workers : [];
+            workers.forEach(worker => {
+                const workerId = worker.id || worker.worker_id || worker.workerId;
+                if (!deviceId || !workerId) return;
+                addNormalizedWorker(normalized, {
+                    deviceId,
+                    workerId,
+                    origin: worker.origin || device.origin,
+                    isAlive: typeof worker.is_connected === 'boolean'
+                        ? worker.is_connected
+                        : !!device.is_connected,
+                    isAllocated: worker.is_in_use
+                });
+            });
+
+            const hasWorker = Object.keys(normalized).some(key => key.startsWith(`${deviceId}_`));
+            const isAlive = typeof device.is_connected === 'boolean' ? device.is_connected : device.isAlive;
+            if (!hasWorker && isAlive === false && deviceId) {
+                normalized[deviceId] = {
+                    name: deviceId,
+                    parent: cleanName(device.origin || deviceId),
+                    isAllocated: false,
+                    isAlive: false
+                };
+            }
+        });
+    }
+
+    return normalized;
+}
+
+function addNormalizedWorker(normalized, worker) {
+    const name = worker.deviceId + "_" + worker.workerId.slice(-3);
+    normalized[name] = {
+        name,
+        parent: cleanName(worker.origin || worker.deviceId),
+        isAllocated: !!worker.isAllocated,
+        isAlive: worker.isAlive === true
+    };
 }
 
 function cleanName(str) {

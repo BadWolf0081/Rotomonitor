@@ -9,6 +9,7 @@
     "rotomURL":"http://ip:7072/",
     "basicUsername":"",
     "basicPassword":"",
+    "rotomSecret":"",
 
     "postDeviceSummary":true,
 

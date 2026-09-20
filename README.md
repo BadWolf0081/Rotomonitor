@@ -43,6 +43,9 @@ userAlerts: an array of user IDs to DM upon device going offline
 rotomURL: URL of your Rotom admin interface, by default IP:7072 but can use actual URL if you have a properly configured reverse proxy
 basicUsername: Username for reverse proxy BasicAuth.
 basicPassword: Password for reverse proxy BasicAuth.
+rotomSecret: Optional RotomNG HTTP API secret. Set this to the value configured as `http_listener.secret`; it is sent as the `X-Rotom-Secret` header.
+
+RotomNG is supported by the status monitor. It automatically handles NG's nested workers, snake_case fields, and `is_connected`/`is_in_use` status values. Leave `rotomSecret` empty when using OG or an unauthenticated NG API.
 
 postDeviceSummary: true/false - Bool to post device status in a single block by current status
 
