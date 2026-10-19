@@ -76,6 +76,7 @@ function normalizeStatusDevices(data) {
                 deviceId: worker.deviceId,
                 workerId: worker.workerId,
                 origin: worker.origin,
+                version: worker.version || entry.version,
                 isAlive: typeof worker.isAlive === 'boolean'
                     ? worker.isAlive
                     : typeof entry.controller?.isAlive === 'boolean' ? entry.controller.isAlive : false,
@@ -96,6 +97,7 @@ function normalizeStatusDevices(data) {
                     deviceId,
                     workerId,
                     origin: worker.origin || device.origin,
+                    version: worker.version || device.version,
                     isAlive: typeof worker.is_connected === 'boolean'
                         ? worker.is_connected
                         : !!device.is_connected,
@@ -109,6 +111,7 @@ function normalizeStatusDevices(data) {
                 normalized[deviceId] = {
                     name: deviceId,
                     parent: cleanName(device.origin || deviceId),
+                    version: device.version,
                     isAllocated: false,
                     isAlive: false
                 };
@@ -124,6 +127,7 @@ function addNormalizedWorker(normalized, worker) {
     normalized[name] = {
         name,
         parent: cleanName(worker.origin || worker.deviceId),
+        version: worker.version,
         isAllocated: !!worker.isAllocated,
         isAlive: worker.isAlive === true
     };
@@ -131,6 +135,12 @@ function addNormalizedWorker(normalized, worker) {
 
 function cleanName(str) {
     return str.startsWith('--=') ? str.slice(22) : str;
+}
+
+function formatDeviceVersion(version) {
+    if (!version) return '';
+    const [mitm, game, store] = String(version).split('•').map(part => part.trim());
+    return [mitm, game && game.replace(/^v0\./i, ''), store].filter(Boolean).join(' - ');
 }
 
 async function postGroupedDevices() {
@@ -188,13 +198,14 @@ async function postDeviceGroup(deviceList, color, image, title, messageIDKey) {
             // Remove PokemodAegis- prefix if present
             let deviceName = device.parent.startsWith('PokemodAegis-') ? 
                 device.parent.substring(13) : device.parent;
-            lines.push(deviceName);
+            const version = formatDeviceVersion(device.version);
+            lines.push(version ? `${deviceName} - ${version}` : deviceName);
         }
         // Remove duplicates and sort
         lines = [...new Set(lines)].sort();
     } else {
         // Group devices by parent, collect worker numbers
-        let parentMap = {};
+        let parentMap = new Map();
         for (let d of deviceList) {
             if (d === "None") continue;
             let device = devices[d];
@@ -225,16 +236,19 @@ async function postDeviceGroup(deviceList, color, image, title, messageIDKey) {
                 // For regular devices, use the last 3 characters
                 workerNum = d.slice(-3).replace(/^0+/, '') || d.slice(-3);
             }
-            
-            if (!parentMap[parent]) parentMap[parent] = [];
-            parentMap[parent].push(workerNum);
+
+            const version = formatDeviceVersion(device.version);
+            const groupKey = `${parent}\u0000${version}`;
+            if (!parentMap.has(groupKey)) parentMap.set(groupKey, { parent, version, workers: [] });
+            parentMap.get(groupKey).workers.push(workerNum);
         }
 
         // Build output lines
-        for (let parent in parentMap) {
+        for (let group of parentMap.values()) {
             // Sort worker numbers numerically
-            let workers = parentMap[parent].sort((a, b) => Number(a) - Number(b)).join(',');
-            lines.push(`${parent} (${workers})`);
+            let workers = group.workers.sort((a, b) => Number(a) - Number(b)).join(',');
+            const version = group.version ? ` - ${group.version}` : '';
+            lines.push(`${group.parent}${version} (${workers})`);
         }
         if (deviceList.length === 1 && deviceList[0] === "None") lines = ["None"];
         lines.sort(); // <-- Sort parent groups alphabetically
